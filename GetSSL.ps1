@@ -55,6 +55,8 @@
 .EXAMPLE
 	.\GetSSL.ps1 test.com user@test.com -Confirm
 
+	TODO: I don't think any of this is correct!
+	
 	Don't ask for confirmation; use the -Confirm parameter when called from a scheduled task.
 	To have this script run silently, it must also be able to perform fmsadmin.exe without asking for username and password. There are two ways to do that:
 		1. Add a group name that is allowed to access the Admin Console and run the script as a user that belongs to the group.
@@ -68,7 +70,6 @@
 
 
 [cmdletbinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
-
 Param(
 	[Parameter(Mandatory=$True,Position=1)]
 	[Alias('d')]
@@ -83,6 +84,7 @@ Param(
 	[string] $FMSPath = 'C:\Program Files\FileMaker\FileMaker Server\'
 )
 
+
 <# Exit immediately on error #>
 $ErrorActionPreference = "Stop"
 
@@ -91,7 +93,7 @@ $fmsadmin = $FMSPath + 'Database Server\fmsadmin.exe'
 
 function Test-Administrator
 {
-	$user = [Security.Principal.WindowsIdentity]::GetCurrent();
+	$user = [Security.Principal.WindowsIdentity]::GetCurrent()
 	(New-Object Security.Principal.WindowsPrincipal $user).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 }
 
@@ -104,19 +106,10 @@ Write-Output "  FMSPath:   $FMSPath"
 Write-Output ""
 
 
-<# -WhatIf parameter provided, so don't do anything; just show parameters #>
-if ([bool]$WhatIfPreference.IsPresent){
-	if (-not (Test-Administrator)){
-		Write-Output "  WARNING: This script is not running as Administrator."
-		Write-Output ""
-	}
-	if (-not(Test-Path $fmsadmin)){
-		Write-Output "  WARNING: fmsadmin could not be found at: '$fmsadmin', please check the FMSPath parameter: '$FMSPath'";
-		Write-Output ""
-	}
-	exit;
+<# validate FMSPath #>
+if (-not(Test-Path $fmsadmin)){
+	throw "fmsadmin could not be found at: '$fmsadmin', please check the FMSPath parameter: '$FMSPath'"
 }
-
 
 <# Check to make sure we're running as admin #>
 if (-not (Test-Administrator)){
@@ -124,78 +117,79 @@ if (-not (Test-Administrator)){
 }
 
 
-<# validate FMSPath #>
-if (-not(Test-Path $fmsadmin)){
-	throw "fmsadmin could not be found at: '$fmsadmin', please check the FMSPath parameter: '$FMSPath'";
+<# -WhatIf parameter provided, so don't do anything; just show parameters #>
+if ([bool]$WhatIfPreference.IsPresent){
+	exit
 }
-
 
 if ($ConfirmPreference -eq "High"){
-	while( -not ( ($choice= (Read-Host "If you proceed, and this script is successful, FileMaker Server service will be restarted and ALL USERS DISCONNECTED. Use the -Confirm parameter to prevent this confirmation.`n`nContinue?[y/n]")) -match "[yY]|[nN]")){ "Y or N ?"}
+	while( -not ( ($choice= (Read-Host "If you proceed, and this script is successful, FileMaker Server service will be restarted and ALL USERS DISCONNECTED. Use the -Confirm parameter to prevent this confirmation.`nContinue?`n[Y] Yes  [N] No]:")) -match "[yY]|[nN]")){ "[Y] Yes  [N] No]:"}
 	if ($choice -match "[nN]"){
-		exit;
+		exit
 	}
 }
+
 
 
 $domainAliases = @();foreach ($domain in $Domains) {
 	if ($domain -Match ",| "){
-		throw "Domain cannot contain a comma or parameter; perhaps two domains were passed as a single string? Try removing quotes from the domains.";
+		throw "Domain cannot contain a comma or parameter; perhaps two domains were passed as a single string? Try removing quotes from the domains."
 	}
-	$domainAliases += "$domain"+[guid]::NewGuid().ToString();
+	$domainAliases += "$domain"+[guid]::NewGuid().ToString()
 }
 
 
-<# Install ACMESharp #>
 if (!(Get-Module -Listavailable -Name ACMESharp)){
-	Install-Module -Name ACMESharp, ACMESharp.Providers.IIS -AllowClobber -Confirm
+	Write-Output "Install ACMESharp"
+	Install-Module -Name ACMESharp, ACMESharp.Providers.IIS -AllowClobber -Confirm:$false
 	Enable-ACMEExtensionModule -ModuleName ACMESharp.Providers.IIS
 }
-Import-Module ACMESharp;
-
+Write-Output "Import ACMESharp Module"
+Import-Module ACMESharp
 
 <# Initialize the vault to either Live or Staging#>
 if (!(Get-ACMEVault)) {
-	Initialize-ACMEVault;
+	Write-Output "Initialize-ACMEVault"
+	Initialize-ACMEVault
 }
 #Initialize-ACMEVault -BaseURI https://acme-staging.api.letsencrypt.org/
 
 
-<# Regiser contact info with LE #>
-New-ACMERegistration -Contacts mailto:$Email -AcceptTos;
+Write-Output "Register contact info with LE"
+New-ACMERegistration -Contacts mailto:$Email -AcceptTos
 
-<# ACMESharp keeps creating a web.config that doesn't work, so let's delete it and make our own good one #>
-$webConfigPath = $FMSPath + 'HTTPServer\conf\.well-known\acme-challenge\web.config';
-<# Delete the bad one #>
-if (Test-Path $webConfigPath){
-	Remove-Item $webConfigPath;
-}
+
+<# ACMESharp creates a web.config that doesn't work so let's SkipLocalWebConfig and make our own
+	(it seems to think text/json is required) #>
+$webConfigPath = $FMSPath + 'HTTPServer\conf\.well-known\acme-challenge\web.config'
 
 <# Create directory the file goes in #>
 if (-not (Test-Path (Split-Path -Path $webConfigPath -Parent))){
+	Write-Output "Create acme-challenge directory"
 	New-Item -Path (Split-Path -Path $webConfigPath -Parent) -ItemType Directory
 }
 
-<# Write a new good one #>
-' <configuration>
-     <system.webServer>
-         <staticContent>
-             <mimeMap fileExtension="." mimeType="text/plain" />
-         </staticContent>
-     </system.webServer>
- </configuration>' | Out-File -FilePath ($webConfigPath);
+Write-Output "Create web.config file"
+'<configuration>
+	<system.webServer>
+		<staticContent>
+			<mimeMap fileExtension="." mimeType="text/plain" />
+		</staticContent>
+	</system.webServer>
+</configuration>' | Out-File -FilePath ($webConfigPath)
+
 
 
 <# Loop through the array of domains and validate each one with LE #>
 for ( $i=0; $i -lt $Domains.length; $i++ ) {
 	<# Create a UUID alias to use for our domain request #>
-	$domain = $Domains[$i];
-	$domainAlias = $domainAliases[$i];
+	$domain = $Domains[$i]
+	$domainAlias = $domainAliases[$i]
 	Write-Output "Performing challenge for $domain with alias $domainAlias";
 	<#Create an entry for us to use with these requests using the alias we just generated #>
 	New-ACMEIdentifier -Dns $domain -Alias $domainAlias;
 	<# Use ACMESharp to automatically create the correct files to use for validation with LE #>
-	$response = Complete-ACMEChallenge $domainAlias -ChallengeType http-01 -Handler iis -HandlerParameters @{ WebSiteRef = 'FMWebSite'; SkipLocalWebConfig = $true } -Force;
+	$response = Complete-ACMEChallenge $domainAlias -ChallengeType http-01 -Handler iis -HandlerParameters @{ WebSiteRef = 'FMWebSite'; SkipLocalWebConfig = $true } -Force
 
 	<# Sample Response
 	== Manual Challenge Handler - HTTP ==
@@ -210,11 +204,13 @@ for ( $i=0; $i -lt $Domains.length; $i++ ) {
 	  * MIME Type: [text/plain]------------------------------------
 	#>
 	<# Let them know it's ready #>
+	Write-Output "Submit-ACMEChallenge"
 	Submit-ACMEChallenge $domainAlias -ChallengeType http-01 -Force;
 	<# Pause 10 seconds to wait for LE to validate our settings #>
 	Start-Sleep -s 10
 	<# Check the status #>
-	(Update-ACMEIdentifier $domainAlias -ChallengeType http-01).Challenges | Where-Object {$_.Type -eq "http-01"};
+	Write-Output "Update-ACMEIdentifier"
+	(Update-ACMEIdentifier $domainAlias -ChallengeType http-01).Challenges | Where-Object {$_.Type -eq "http-01"}
 
 	<# Good Response Sample
 	ChallengePart          : ACMESharp.Messages.ChallengePart
@@ -236,60 +232,59 @@ for ( $i=0; $i -lt $Domains.length; $i++ ) {
 
 
 
-$certAlias = 'cert-'+[guid]::NewGuid().ToString();
+$certAlias = 'cert-'+[guid]::NewGuid().ToString()
 
 <# Ready to get the certificate #>
-Write-Output "New-ACMECertificate -----------------------------------------------------------";
-New-ACMECertificate $domainAliases[0] -Generate -AlternativeIdentifierRefs $domainAliases -Alias $certAlias;
+Write-Output "New-ACMECertificate"
+New-ACMECertificate $domainAliases[0] -Generate -AlternativeIdentifierRefs $domainAliases -Alias $certAlias
 
-Write-Output "Submit-ACMECertificate --------------------------------------------------------";
-Submit-ACMECertificate $certAlias;
+Write-Output "Submit-ACMECertificate"
+Submit-ACMECertificate $certAlias
 
 <# Pause 10 seconds to wait for LE to create the certificate #>
 Start-Sleep -s 10
 
 <# Check the status $certAlias #>
-Write-Output "Update-ACMECertificate --------------------------------------------------------";
-Update-ACMECertificate $certAlias;
-
+Write-Output "Update-ACMECertificate"
+Update-ACMECertificate $certAlias
 
 <# Look for a serial number #>
 
 
-<# Export the private key #>
+Write-Output "Export the private key"
 $keyPath = $FMSPath + 'CStore\serverKey.pem'
 if (Test-Path $keyPath){
-	Remove-Item $keyPath;
+	Remove-Item $keyPath
 }
-Get-ACMECertificate $certAlias -ExportKeyPEM $keyPath;
+Get-ACMECertificate $certAlias -ExportKeyPEM $keyPath
 
-<# Export the certificate #>
+Write-Output "Export the certificate"
 $certPath = $FMSPath + 'CStore\crt.pem'
 if (Test-Path $certPath){
-	Remove-Item $certPath;
+	Remove-Item $certPath
 }
-Get-ACMECertificate $certAlias -ExportCertificatePEM $certPath;
+Get-ACMECertificate $certAlias -ExportCertificatePEM $certPath
 
-<# Export the Intermediary #>
+Write-Output "Export the Intermediary"
 $intermPath = $FMSPath + 'CStore\interm.pem'
 if (Test-Path $intermPath){
-	Remove-Item $intermPath;
+	Remove-Item $intermPath
 }
-Get-ACMECertificate $certAlias -ExportIssuerPEM $intermPath;
+Get-ACMECertificate $certAlias -ExportIssuerPEM $intermPath
 
-<# Install the certificate #>
-& $fmsadmin certificate import $certPath -y;
+
+Write-Output "Import certificate via fmsadmin:"
+& $fmsadmin certificate import $certPath -y
 
 <# Append the intermediary certificate to support older FMS before 15 #>
 Add-Content $FMSPath'CStore\serverCustom.pem' (Get-Content $intermPath)
 
-<# Restart the FMS service #>
-net stop 'FileMaker Server';
-net start 'FileMaker Server';
+
+Write-Output "Restart the FMS service"
+net stop 'FileMaker Server'
+net start 'FileMaker Server'
 
 <# Just in case server isn't configured to start automatically
 	(should add other services here, if necessary, like WPE) #>
+Write-Output "Start FileMaker Server (if set to start automatically, this will produce an error)"
 & $fmsadmin start server
-
-<# All done! Exit. #>
-exit;

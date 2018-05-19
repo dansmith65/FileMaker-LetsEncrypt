@@ -7,9 +7,9 @@ Thanks for figuring out the hard part David!
 
 ## Notes
 
-* Only supports newer OS (only tested on Windows Server 2017, but likely works on 2016 as well).
+* Only supports newer OS (only tested on Windows Server 2016).
 * Only tested on FileMaker Server 16 and 17.
-* Installs ACMESharp for you. (TODO: test this)
+* Installs ACMESharp for you.
 * Will not display any errors, unless it fails.
 
 
@@ -21,40 +21,49 @@ Thanks for figuring out the hard part David!
     3. Right-click on **Windows PowerShell**
     4. Click **Run as administrator**
 
-2. Configure ExecutionPolicy:  
-   TODO: verify CurrentUser scope is sufficient
-
-    * Option 1: Change the policy for the current user (less secure):
-
-        ```powershell
-        Set-ExecutionPolicy -Scope CurrentUser Unrestricted
-        ```
-
-    * Option 2: specify the policy every time you run the script (more secure):
-	TODO: consider making this the only suggestion
-
-        ```powershell
-        powershell.exe -ExecutionPolicy Bypass -Command .\GetSSL.ps1 example.com user@email.com
-    	```
-
-3. Download the `GetSSL.ps1` file to your server:
+2. Download the `GetSSL.ps1` file to your server:
 
     ```powershell
-	Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/blob/dev/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"
+	# TODO: switch out /dev/ with /master/ before merging with that branch
+	Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/dev/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"
     ```
 
-4. Get your first Certificate:
+3. Get your first Certificate:
 
     ```powershell
-    "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1" fms.example.com user@email.com
+	# You might want to read the Docs first (see below).
+    # If you like to live dangerously and you have FileMaker Server installed in
+    # the default directory you can run this command after replacing fms.example.com
+    # and user@email.com with your own.
+    
+    powershell.exe -ExecutionPolicy Bypass -Command "& 'C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1' fms.example.com user@email.com"
     ```
 
-5. Setup scheduled task to renew the certificate:  
+4. (Optional) Setup scheduled task to renew the certificate:  
    TODO: mention that fmsadmin user/pass needs to either be saved in the script, or user that runs the script exist in a group that can access admin console
 
     ```powershell
     #TODO
     ```
+
+5. (Optional) Configure ExecutionPolicy:  
+
+    * Option 1: specify the policy every time you run the script (more secure):  
+	  This is the method used when getting your first certificate.
+
+        ```powershell
+        powershell.exe -ExecutionPolicy Bypass -Command .\GetSSL.ps1 example.com user@email.com
+    	```
+
+    * Option 2: Change the policy for the CurrentUser or LocalSystem (less secure):
+
+        ```powershell
+        # First, view the current policy:
+        Get-ExecutionPolicy -List
+        
+        # If necessary, modify the policy:
+        Set-ExecutionPolicy -Scope CurrentUser Unrestricted
+        ```
 
 
 ## Docs
