@@ -25,26 +25,20 @@ Thanks for figuring out the hard part David!
 
    TODO: switch out /dev/ with /master/ before merging with that branch
 
-    ```powershell
-	Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/dev/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"
-    ```
+    `Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/dev/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"`
 
 3. Get your first Certificate:
    This is necessary because the first time you run the script, it will likely update NuGet and install ACMESharp, both of which require confirmation.  
    You **should** read the Docs first (see below). If you like to live dangerously and you have FileMaker Server installed in
    the default directory you can run this command after replacing `fms.example.com` and `user@email.com` with your own.
 
-    ```
-    powershell.exe -ExecutionPolicy Bypass -Command "& 'C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1' fms.example.com user@email.com"
-    ```
+    `powershell.exe -ExecutionPolicy Bypass -Command "& 'C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1' fms.example.com user@email.com"`
 
 4. (Optional) Setup scheduled task to renew the certificate:  
    Will schedule a task to re-occur every 80 days. You can modify this task after it's created by opening Task Scheduler.  
    If you don't do this step, you will have to run the above command to renew the certificate before it expires every 90 days.
 
-    ```powershell
-    powershell.exe -ExecutionPolicy Bypass -Command "& 'C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1' fms.example.com user@email.com -ScheduleTask"
-    ```
+    `powershell.exe -ExecutionPolicy Bypass -Command "& 'C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1' fms.example.com user@email.com -ScheduleTask"`
 
    To have this script run silently, it must also be able to perform fmsadmin.exe without asking for username and password. There are two ways to do that:
 
