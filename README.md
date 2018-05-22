@@ -23,9 +23,7 @@ Thanks for figuring out the hard part David!
 
 2. Download the `GetSSL.ps1` file to your server:  
 
-   TODO: switch out /dev/ with /master/ before merging with that branch
-
-    `Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/dev/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"`
+    `Invoke-WebRequest -Uri https://raw.githubusercontent.com/dansmith65/FileMaker-LetsEncrypt/master/GetSSL.ps1 -OutFile "C:\Program Files\FileMaker\FileMaker Server\Data\Scripts\GetSSL.ps1"`
 
 3. Get your first Certificate:
    This is necessary because the first time you run the script, it will likely update NuGet and install ACMESharp, both of which require confirmation.  
@@ -42,8 +40,7 @@ Thanks for figuring out the hard part David!
 
    To have this script run silently, it must also be able to perform fmsadmin.exe without asking for username and password. There are two ways to do that:
 
-    1. Add a group name that is allowed to access the Admin Console and run the script as a user that belongs to the group.  
-       NOTE: I haven't tested this option yet, so can't confirm it works as described.
+    1. Add a group name that is allowed to access the Admin Console and run the script as a user that belongs to the group.
     2. Hard-code the username and password into this script. (less secure)  
        Add "-u username -p password" at the end of the line containing: `fmsadmin certificate import`
 

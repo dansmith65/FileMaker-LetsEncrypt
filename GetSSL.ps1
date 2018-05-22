@@ -27,7 +27,7 @@
 	File Name:   GetSSL.ps1
 	Author:      David Nahodyl contact@bluefeathergroup.com, modified by Daniel Smith dan@filemaker.consulting
 	Created:     2016-10-08
-	Revised:     2018-05-17
+	Revised:     2018-05-22
 	Version:     0.7-DS
 
 .LINK
